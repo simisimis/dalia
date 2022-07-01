@@ -1,5 +1,5 @@
-mod image;
 mod directory;
+mod image;
 
 use clap::Parser;
 
