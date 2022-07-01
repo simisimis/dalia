@@ -45,6 +45,7 @@
             cat <<EOF
             Welcome to the 🌻dalia development shell.
 
+            $(just -l |sed 's/^Available recipes:/The following `just` recipes are available:/')
             EOF
             exec zsh
           '';
