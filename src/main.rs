@@ -1,3 +1,6 @@
+mod image;
+mod directory;
+
 use clap::Parser;
 
 /// An utility to do magic with your photos
@@ -13,4 +16,9 @@ fn main() {
     let args = Args::parse();
 
     println!("path provided: {}!", args.path);
+
+    for i in directory::get_file_iter(args.path).unwrap() {
+        println!("{}", i.to_string_lossy());
+    }
+
 }
