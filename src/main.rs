@@ -10,6 +10,10 @@ struct Args {
     /// A path to search photos in
     #[clap(short, long, value_parser)]
     path: String,
+
+    /// Skip recognising file types
+    #[clap(short, long, value_parser)]
+    skip_type_checking: bool,
 }
 
 fn main() {
@@ -17,8 +21,7 @@ fn main() {
 
     println!("path provided: {}!", args.path);
 
-    for i in directory::get_file_iter(args.path).unwrap() {
+    for i in directory::get_file_iter(args.path, args.skip_type_checking).unwrap() {
         println!("{}", i.to_string_lossy());
     }
-
 }
