@@ -110,8 +110,14 @@ pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
     let file = std::fs::File::open(path)?;
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
-    let exif = exifreader.read_from_container(&mut bufreader)?;
-    let date_time_taken = extract_date_time_exif_field(&exif, Tag::DateTimeOriginal)?;
+
+    let date_time_taken = match exifreader.read_from_container(&mut bufreader) {
+        Ok(exif) => extract_date_time_exif_field(&exif, Tag::DateTimeOriginal)?,
+        Err(err) => {
+            eprintln!("Could not read EXIF data: {}", err);
+            None
+        }
+    };
 
     Ok(Metadata {
         date_time_created,
