@@ -16,8 +16,14 @@ pub(crate) fn get_file_iter(
         let f_path = entry.path();
         // Check the file type
         //ALTERNATIVE ==> f_path.is_file() && info.is_image(&fs::read(f_path).unwrap())
-        if skip_type_checking || image::image_or_video(&f_path) {
-            v.push(PathBuf::from(f_path));
+        if !skip_type_checking {
+            match image::image_or_video(&f_path) {
+                Ok(true) => v.push(PathBuf::from(f_path)),
+                Ok(false) => {}
+                Err(_) => {
+                    eprintln!("skip {}", &f_path.display())
+                }
+            }
         }
     }
     Ok(v)
