@@ -23,6 +23,8 @@ pub(crate) fn get_file_iter(
                 Err(_) => {
                     eprintln!("skip {}", &f_path.display())
                 }
+            } else {
+                v.push(PathBuf::from(f_path));
             }
         }
     }
