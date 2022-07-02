@@ -8,11 +8,11 @@ use clap::Parser;
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// A path to search photos in
-    #[clap(short, long, value_parser)]
+    #[clap(short, long, value_parser, default_value = ".")]
     path: String,
 
     /// Skip recognising file types
-    #[clap(short, long, value_parser)]
+    #[clap(short, long)]
     skip_type_checking: bool,
 }
 
