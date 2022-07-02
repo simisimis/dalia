@@ -5,8 +5,7 @@ pub(crate) fn image_or_video<P: AsRef<Path>>(filename: &P) -> Result<bool, io::E
     match infer::get_from_path(filename) {
         Ok(Some(info)) if info.matcher_type() == infer::MatcherType::Image => Ok(true),
         Ok(Some(info)) if info.matcher_type() == infer::MatcherType::Video => Ok(true),
-        Ok(None) => Ok(false),
+        Ok(_) => Ok(false),
         Err(e) => Err(e),
-        _ => Ok(false),
     }
 }
