@@ -19,18 +19,16 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    eprintln!("Provided path: {}", args.path);
+    println!("Provided path: {}", args.path);
 
     for p in directory::get_file_iter(args.path, args.skip_type_checking).unwrap() {
-        eprintln!("File: {}", p.to_string_lossy());
+        println!("File: {}", p.to_string_lossy());
         match metadata::read_metadata(p.as_path()) {
             Ok(metadata) => {
-                eprintln!("{:?}", metadata);
-                eprintln!("Date time created: {:?}", metadata.date_time_created);
-                eprintln!("Date time taken: {:?}", metadata.date_time_taken);
+                println!("{}", metadata);
             }
             Err(err) => eprintln!("Could not read metadata: {}", err),
         }
-        eprintln!("---");
+        println!("---");
     }
 }
