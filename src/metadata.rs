@@ -20,12 +20,6 @@ pub struct MetadataError {
 }
 
 impl MetadataError {
-    fn from_str(message: &str) -> Self {
-        MetadataError {
-            message: message.to_string(),
-        }
-    }
-
     fn from_string(message: String) -> Self {
         MetadataError { message }
     }
@@ -56,13 +50,14 @@ fn result_to_option<T, E: Error>(res: Result<T, E>, checkpoint: String) -> Optio
     match res {
         Ok(t) => Some(t),
         Err(e) => {
-            eprint!("Error occurred during {}: {}", checkpoint, e)
+            eprint!("Error occurred during {}, {}", checkpoint, e);
+            None
         }
     }
 }
 
-fn open_file(path: &Path) -> Option<fs::File> {
-    result_to_option(fs::File::open(path), "opening file " + path.display())
+fn open_file(path: &Path, file_name: &String) -> Option<fs::File> {
+    result_to_option(fs::File::open(path), "opening file ".to_owned() + file_name)
 }
 
 fn get_date_time_created(path: &Path) -> Result<DateTime<FixedOffset>, MetadataError> {
@@ -74,7 +69,7 @@ fn get_exif_metadata(file: fs::File, file_name: &String) -> Option<Exif> {
     let exif_reader = exif::Reader::new();
     result_to_option(
         exif_reader.read_from_container(&mut bufreader),
-        "extracting exif metadata for " + file_name
+        "extracting exif metadata for ".to_owned() + file_name
     )
 }
 
@@ -85,7 +80,7 @@ fn get_exif_date_time_field(exif: Exif, tag: Tag, file_name: &String)
             match field.value {
                 Value::Ascii(ref v) => result_to_option(
                     exif::DateTime::from_ascii(&v[0]),
-                    "converting exif field " + tag + " to date time"
+                    "converting exif field ".to_owned() + &tag.to_string() + " to date time"
                 ),
                 _ => {
                     eprintln!("Exif field {} is not ascii in file {}", tag, file_name);
@@ -95,10 +90,10 @@ fn get_exif_date_time_field(exif: Exif, tag: Tag, file_name: &String)
         }).flatten()
 }
 
-fn from_exif_to_chrono_date_time(exif_fate_time: exif::DateTime, file_name: &String)
-    -> Option<DateTime<FixedOffset>> {
+fn from_exif_to_chrono_date_time(exif_date_time: exif::DateTime, file_name: &String)
+                                 -> Option<DateTime<FixedOffset>> {
 
-    let offset = match exif_fate_time.offset {
+    let offset = match exif_date_time.offset {
         Some(offset_minutes) => FixedOffset::west((offset_minutes * 60).into()),
         None => FixedOffset::west(0),
     };
@@ -119,11 +114,11 @@ fn from_exif_to_chrono_date_time(exif_fate_time: exif::DateTime, file_name: &Str
     match maybe_date {
         chrono::LocalResult::Single(date) => Some(date),
         chrono::LocalResult::Ambiguous(_, _) => {
-            eprintln!("Date time {} in {} was ambiguous", file_name, exif_fate_time);
+            eprintln!("Date time {} in {} was ambiguous", file_name, exif_date_time);
             None
         },
         chrono::LocalResult::None => {
-            eprintln!("Date time {} in {} was invalid", file_name, exif_fate_time);
+            eprintln!("Date time {} in {} was invalid", file_name, exif_date_time);
             None
         }
     }
@@ -131,7 +126,7 @@ fn from_exif_to_chrono_date_time(exif_fate_time: exif::DateTime, file_name: &Str
 
 fn get_date_time_taken(path: &Path) -> Option<DateTime<FixedOffset>> {
     let file_name = path.display().to_string();
-    open_file(path)
+    open_file(path, &file_name)
         .map(|file| get_exif_metadata(file, &file_name)).flatten()
         .map(|exif|
             get_exif_date_time_field(exif, Tag::DateTimeOriginal, &file_name)
