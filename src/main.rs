@@ -1,6 +1,6 @@
 mod directory;
-mod image;
 mod metadata;
+mod mimetype;
 use clap::Parser;
 
 /// An utility to do magic with your photos
