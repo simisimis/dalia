@@ -12,6 +12,16 @@ pub struct Metadata {
     pub date_time_taken: Option<DateTime<FixedOffset>>,
 }
 
+impl fmt::Display for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Date time created: {}\n", self.date_time_created)?;
+        match self.date_time_taken {
+            Some(taken) => write!(f, "Date time taken: {}", taken),
+            None => write!(f, "Date time taken: unknown"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MetadataError {
     message: String,
