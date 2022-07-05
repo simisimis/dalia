@@ -1,4 +1,4 @@
-use crate::image;
+use crate::mimetype;
 use std::io;
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -17,7 +17,7 @@ pub(crate) fn get_file_iter(
         // Check the file type
         //ALTERNATIVE ==> f_path.is_file() && info.is_image(&fs::read(f_path).unwrap())
         if !skip_type_checking {
-            match image::image_or_video(&f_path) {
+            match mimetype::image_or_video(&f_path) {
                 Ok(true) => v.push(PathBuf::from(f_path)),
                 Ok(false) => {}
                 Err(_) => {
