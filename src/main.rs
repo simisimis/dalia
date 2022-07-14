@@ -14,12 +14,19 @@ struct Args {
     /// Skip recognising file types
     #[clap(short, long)]
     skip_type_checking: bool,
+
+    /// Set required logging level.
+    #[clap(long, default_value = log::LevelFilter::Info.as_str())]
+    log_level: log::LevelFilter,
 }
 
 fn main() {
     let args = Args::parse();
+    pretty_env_logger::formatted_builder()
+        .filter(None, args.log_level)
+        .init();
 
-    println!("Provided path: {}", args.path);
+    log::info!("Provided path: {}", args.path);
 
     for p in directory::get_file_iter(args.path, args.skip_type_checking).unwrap() {
         println!("File: {}", p.to_string_lossy());
