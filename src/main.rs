@@ -1,7 +1,6 @@
-mod directory;
-mod metadata;
-mod mimetype;
 use clap::Parser;
+use dalia::directory;
+use dalia::metadata;
 
 /// An utility to do magic with your photos
 #[derive(Parser, Debug)]
