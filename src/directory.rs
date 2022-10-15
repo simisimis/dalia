@@ -17,9 +17,11 @@ pub fn get_file_iter(root: String, skip_type_checking: bool) -> Result<Vec<PathB
             match mimetype::image_or_video(&f_path) {
                 Ok(true) => v.push(PathBuf::from(f_path)),
                 Ok(false) => {}
-                Err(_) => {
-                    eprintln!("skip {}", &f_path.display())
-                }
+                Err(err) => log::error!(
+                    "Failed to determine if path: {} is image or video. Error: {}",
+                    &f_path.display(),
+                    err
+                ),
             }
         } else {
             v.push(PathBuf::from(f_path));

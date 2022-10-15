@@ -122,7 +122,7 @@ pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
     let date_time_taken = match exifreader.read_from_container(&mut bufreader) {
         Ok(exif) => extract_date_time_exif_field(&exif, Tag::DateTimeOriginal)?,
         Err(err) => {
-            eprintln!("Could not read EXIF data: {}", err);
+            log::debug!("Could not read EXIF data: {}", err);
             None
         }
     };
