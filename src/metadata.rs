@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, TimeZone};
 use exif::{Exif, In, Tag, Value};
 use std::os::unix::prelude::MetadataExt;
-use std::{error::Error, path::Path};
+use std::path::Path;
 use std::{fmt, fs, io};
 
 #[derive(Debug)]
@@ -20,42 +20,28 @@ impl fmt::Display for Metadata {
     }
 }
 
-#[derive(Debug)]
-pub struct MetadataError {
-    message: String,
-}
+/// MetadataError enumerates all errors returned by metadata module.
+#[derive(thiserror::Error, Debug)]
+pub enum MetadataError {
+    /// Representation has multiple results and thus ambiguous.
+    #[error("Ambiguous date")]
+    AmbiguousDate,
 
-impl MetadataError {
-    fn from_str(message: &str) -> Self {
-        MetadataError {
-            message: message.to_string(),
-        }
-    }
+    /// Representation has invalid date.
+    #[error("Invalid date")]
+    InvalidDate,
 
-    fn from_string(message: String) -> Self {
-        MetadataError { message }
-    }
-}
+    /// Catch all errors when trying to parse date from exif.
+    #[error("Exif date field is not Ascii")]
+    ExifDateNotAscii,
 
-// Display implementation is required for std::error::Error.
-impl fmt::Display for MetadataError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Metadata error: {}", self.message)
-    }
-}
+    /// Forward all errors returned by exif crate.
+    #[error(transparent)]
+    ExifError(#[from] exif::Error),
 
-impl Error for MetadataError {}
-
-impl From<exif::Error> for MetadataError {
-    fn from(item: exif::Error) -> Self {
-        MetadataError::from_string(item.to_string())
-    }
-}
-
-impl From<io::Error> for MetadataError {
-    fn from(item: io::Error) -> Self {
-        MetadataError::from_string(item.to_string())
-    }
+    /// Forward underlying `std::io` errors.
+    #[error(transparent)]
+    IOError(#[from] io::Error),
 }
 
 fn get_date_time_created(path: &Path) -> Result<chrono::DateTime<FixedOffset>, MetadataError> {
@@ -85,10 +71,8 @@ fn convert_exif_date_time_to_chrono_date_time_fixed_offset(
 
     match maybe_date {
         chrono::LocalResult::Single(date) => Ok(date),
-        chrono::LocalResult::Ambiguous(_, _) => Err(MetadataError::from_str("Ambiguous date")),
-        chrono::LocalResult::None => Err(MetadataError {
-            message: "Invalid date".to_string(),
-        }),
+        chrono::LocalResult::Ambiguous(_, _) => Err(MetadataError::AmbiguousDate),
+        chrono::LocalResult::None => Err(MetadataError::InvalidDate),
     }
 }
 
@@ -104,9 +88,7 @@ fn extract_date_time_exif_field(
                 Ok(date_time) => Ok(Some(date_time)),
                 Err(err) => Err(err),
             },
-            _ => Err(MetadataError {
-                message: "Exif date field is not ascii".to_string(),
-            }),
+            _ => Err(MetadataError::ExifDateNotAscii),
         },
         None => Ok(None),
     }
