@@ -3,10 +3,7 @@ use std::io;
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-pub(crate) fn get_file_iter(
-    root: String,
-    skip_type_checking: bool,
-) -> Result<Vec<PathBuf>, io::Error> {
+pub fn get_file_iter(root: String, skip_type_checking: bool) -> Result<Vec<PathBuf>, io::Error> {
     let mut v: Vec<PathBuf> = Vec::new();
     for entry in WalkDir::new(root)
         .follow_links(true)
@@ -20,9 +17,11 @@ pub(crate) fn get_file_iter(
             match mimetype::image_or_video(&f_path) {
                 Ok(true) => v.push(PathBuf::from(f_path)),
                 Ok(false) => {}
-                Err(_) => {
-                    eprintln!("skip {}", &f_path.display())
-                }
+                Err(err) => log::error!(
+                    "Failed to determine if path: {} is image or video. Error: {}",
+                    &f_path.display(),
+                    err
+                ),
             }
         } else {
             v.push(PathBuf::from(f_path));

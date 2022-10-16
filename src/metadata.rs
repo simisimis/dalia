@@ -1,10 +1,8 @@
 use chrono::{DateTime, FixedOffset, TimeZone};
 use exif::{Exif, In, Tag, Value};
-use std::fmt;
-use std::fs;
-use std::io;
 use std::os::unix::prelude::MetadataExt;
 use std::{error::Error, path::Path};
+use std::{fmt, fs, io};
 
 #[derive(Debug)]
 pub struct Metadata {
@@ -14,7 +12,7 @@ pub struct Metadata {
 
 impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Date time created: {}\n", self.date_time_created)?;
+        writeln!(f, "Date time created: {}", self.date_time_created)?;
         match self.date_time_taken {
             Some(taken) => write!(f, "Date time taken: {}", taken),
             None => write!(f, "Date time taken: unknown"),
@@ -35,7 +33,7 @@ impl MetadataError {
     }
 
     fn from_string(message: String) -> Self {
-        MetadataError { message: message }
+        MetadataError { message }
     }
 }
 
@@ -124,7 +122,7 @@ pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
     let date_time_taken = match exifreader.read_from_container(&mut bufreader) {
         Ok(exif) => extract_date_time_exif_field(&exif, Tag::DateTimeOriginal)?,
         Err(err) => {
-            eprintln!("Could not read EXIF data: {}", err);
+            log::debug!("Could not read EXIF data: {}", err);
             None
         }
     };
