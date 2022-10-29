@@ -31,9 +31,13 @@ pub enum Error {
     #[error("Invalid date")]
     InvalidDate,
 
-    /// Catch all errors when trying to parse date from exif.
+    /// Catch all non ascii Value variants.
     #[error("Exif date field is not Ascii")]
     ExifDateNotAscii,
+
+    /// Failed to convert exif DateTime to one from chrono.
+    #[error("Failed to convert to chrono DateTime: `{0}`")]
+    ChronoConvert(String),
 
     /// Forward all errors returned by exif crate.
     #[error(transparent)]
@@ -86,7 +90,7 @@ fn extract_date_time_exif_field(
                 exif::DateTime::from_ascii(&v[0])?,
             ) {
                 Ok(date_time) => Ok(Some(date_time)),
-                Err(err) => Err(err),
+                Err(err) => Err(Error::ChronoConvert(err.to_string())),
             },
             _ => Err(Error::ExifDateNotAscii),
         },
