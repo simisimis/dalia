@@ -20,9 +20,9 @@ impl fmt::Display for Metadata {
     }
 }
 
-/// MetadataError enumerates all errors returned by metadata module.
+/// Error enumerates all errors returned by metadata module.
 #[derive(thiserror::Error, Debug)]
-pub enum MetadataError {
+pub enum Error {
     /// Representation has multiple results and thus ambiguous.
     #[error("Ambiguous date")]
     AmbiguousDate,
@@ -44,13 +44,13 @@ pub enum MetadataError {
     IOError(#[from] io::Error),
 }
 
-fn get_date_time_created(path: &Path) -> Result<chrono::DateTime<FixedOffset>, MetadataError> {
+fn get_date_time_created(path: &Path) -> Result<chrono::DateTime<FixedOffset>, Error> {
     Ok(FixedOffset::west(0).timestamp(fs::metadata(path)?.ctime(), 0))
 }
 
 fn convert_exif_date_time_to_chrono_date_time_fixed_offset(
     exif_date_time: exif::DateTime,
-) -> Result<chrono::DateTime<FixedOffset>, MetadataError> {
+) -> Result<chrono::DateTime<FixedOffset>, Error> {
     let offset = match exif_date_time.offset {
         Some(offset_minutes) => FixedOffset::west((offset_minutes * 60).into()),
         None => FixedOffset::west(0),
@@ -71,15 +71,15 @@ fn convert_exif_date_time_to_chrono_date_time_fixed_offset(
 
     match maybe_date {
         chrono::LocalResult::Single(date) => Ok(date),
-        chrono::LocalResult::Ambiguous(_, _) => Err(MetadataError::AmbiguousDate),
-        chrono::LocalResult::None => Err(MetadataError::InvalidDate),
+        chrono::LocalResult::Ambiguous(_, _) => Err(Error::AmbiguousDate),
+        chrono::LocalResult::None => Err(Error::InvalidDate),
     }
 }
 
 fn extract_date_time_exif_field(
     exif: &Exif,
     tag: Tag,
-) -> Result<Option<chrono::DateTime<FixedOffset>>, MetadataError> {
+) -> Result<Option<chrono::DateTime<FixedOffset>>, Error> {
     match exif.get_field(tag, In::PRIMARY) {
         Some(field) => match field.value {
             Value::Ascii(ref v) => match convert_exif_date_time_to_chrono_date_time_fixed_offset(
@@ -88,13 +88,13 @@ fn extract_date_time_exif_field(
                 Ok(date_time) => Ok(Some(date_time)),
                 Err(err) => Err(err),
             },
-            _ => Err(MetadataError::ExifDateNotAscii),
+            _ => Err(Error::ExifDateNotAscii),
         },
         None => Ok(None),
     }
 }
 
-pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
+pub fn read_metadata(path: &Path) -> Result<Metadata, Error> {
     let date_time_created = get_date_time_created(path)?;
 
     let file = std::fs::File::open(path)?;
