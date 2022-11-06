@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, TimeZone};
 use exif::{Exif, In, Tag, Value};
 use std::os::unix::prelude::MetadataExt;
-use std::{error::Error, path::Path};
+use std::path::Path;
 use std::{fmt, fs, io};
 
 #[derive(Debug)]
@@ -20,51 +20,41 @@ impl fmt::Display for Metadata {
     }
 }
 
-#[derive(Debug)]
-pub struct MetadataError {
-    message: String,
+/// Error enumerates all errors returned by metadata module.
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    /// Representation has multiple results and thus ambiguous.
+    #[error("Ambiguous date. Received: {0} and {1}")]
+    AmbiguousDate(String, String),
+
+    /// Representation has invalid date.
+    #[error("Could not parse the date: {0}")]
+    InvalidDate(String),
+
+    /// Catch all non ascii Value variants.
+    #[error("Exif date field is not Ascii")]
+    ExifDateNotAscii(String),
+
+    /// Failed to convert exif DateTime to one from chrono.
+    #[error("Failed to convert to chrono DateTime: {err} found in this path: {path}")]
+    ChronoConvert { path: String, err: String },
+
+    /// Forward all errors returned by exif crate.
+    #[error(transparent)]
+    ExifError(#[from] exif::Error),
+
+    /// Forward underlying `std::io` errors.
+    #[error(transparent)]
+    IOError(#[from] io::Error),
 }
 
-impl MetadataError {
-    fn from_str(message: &str) -> Self {
-        MetadataError {
-            message: message.to_string(),
-        }
-    }
-
-    fn from_string(message: String) -> Self {
-        MetadataError { message }
-    }
-}
-
-// Display implementation is required for std::error::Error.
-impl fmt::Display for MetadataError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Metadata error: {}", self.message)
-    }
-}
-
-impl Error for MetadataError {}
-
-impl From<exif::Error> for MetadataError {
-    fn from(item: exif::Error) -> Self {
-        MetadataError::from_string(item.to_string())
-    }
-}
-
-impl From<io::Error> for MetadataError {
-    fn from(item: io::Error) -> Self {
-        MetadataError::from_string(item.to_string())
-    }
-}
-
-fn get_date_time_created(path: &Path) -> Result<chrono::DateTime<FixedOffset>, MetadataError> {
+fn get_date_time_created(path: &Path) -> Result<chrono::DateTime<FixedOffset>, Error> {
     Ok(FixedOffset::west(0).timestamp(fs::metadata(path)?.ctime(), 0))
 }
 
 fn convert_exif_date_time_to_chrono_date_time_fixed_offset(
     exif_date_time: exif::DateTime,
-) -> Result<chrono::DateTime<FixedOffset>, MetadataError> {
+) -> Result<chrono::DateTime<FixedOffset>, Error> {
     let offset = match exif_date_time.offset {
         Some(offset_minutes) => FixedOffset::west((offset_minutes * 60).into()),
         None => FixedOffset::west(0),
@@ -85,34 +75,38 @@ fn convert_exif_date_time_to_chrono_date_time_fixed_offset(
 
     match maybe_date {
         chrono::LocalResult::Single(date) => Ok(date),
-        chrono::LocalResult::Ambiguous(_, _) => Err(MetadataError::from_str("Ambiguous date")),
-        chrono::LocalResult::None => Err(MetadataError {
-            message: "Invalid date".to_string(),
-        }),
+        chrono::LocalResult::Ambiguous(date1, date2) => {
+            Err(Error::AmbiguousDate(date1.to_string(), date2.to_string()))
+        }
+        chrono::LocalResult::None => Err(Error::InvalidDate(exif_date_time.to_string())),
     }
 }
 
 fn extract_date_time_exif_field(
+    path: &Path,
     exif: &Exif,
     tag: Tag,
-) -> Result<Option<chrono::DateTime<FixedOffset>>, MetadataError> {
+) -> Result<Option<chrono::DateTime<FixedOffset>>, Error> {
     match exif.get_field(tag, In::PRIMARY) {
         Some(field) => match field.value {
             Value::Ascii(ref v) => match convert_exif_date_time_to_chrono_date_time_fixed_offset(
                 exif::DateTime::from_ascii(&v[0])?,
             ) {
                 Ok(date_time) => Ok(Some(date_time)),
-                Err(err) => Err(err),
+                Err(err) => Err(Error::ChronoConvert {
+                    err: err.to_string(),
+                    path: String::from(path.to_string_lossy()),
+                }),
             },
-            _ => Err(MetadataError {
-                message: "Exif date field is not ascii".to_string(),
-            }),
+            _ => Err(Error::ExifDateNotAscii(String::from(
+                path.to_string_lossy(),
+            ))),
         },
         None => Ok(None),
     }
 }
 
-pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
+pub fn read_metadata(path: &Path) -> Result<Metadata, Error> {
     let date_time_created = get_date_time_created(path)?;
 
     let file = std::fs::File::open(path)?;
@@ -120,7 +114,7 @@ pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
     let exifreader = exif::Reader::new();
 
     let date_time_taken = match exifreader.read_from_container(&mut bufreader) {
-        Ok(exif) => extract_date_time_exif_field(&exif, Tag::DateTimeOriginal)?,
+        Ok(exif) => extract_date_time_exif_field(path, &exif, Tag::DateTimeOriginal)?,
         Err(err) => {
             log::debug!("Could not read EXIF data: {}", err);
             None
@@ -131,4 +125,29 @@ pub fn read_metadata(path: &Path) -> Result<Metadata, MetadataError> {
         date_time_created,
         date_time_taken,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_date_time_convert() -> Result<(), Error> {
+        let exif_date_time = exif::DateTime {
+            year: 2019,
+            month: 2,
+            day: 10,
+            hour: 13,
+            minute: 11,
+            second: 51,
+            nanosecond: None,
+            offset: None,
+        };
+        let chrono_datetime =
+            convert_exif_date_time_to_chrono_date_time_fixed_offset(exif_date_time);
+        assert_eq!(
+            chrono_datetime?.to_string(),
+            "2019-02-10 13:11:51 +00:00".to_string()
+        );
+        Ok(())
+    }
 }
