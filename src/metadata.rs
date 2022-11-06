@@ -33,7 +33,7 @@ pub enum Error {
 
     /// Catch all non ascii Value variants.
     #[error("Exif date field is not Ascii")]
-    ExifDateNotAscii,
+    ExifDateNotAscii(String),
 
     /// Failed to convert exif DateTime to one from chrono.
     #[error("Failed to convert to chrono DateTime: {err} found in this path: {path}")]
@@ -98,7 +98,9 @@ fn extract_date_time_exif_field(
                     path: String::from(path.to_string_lossy()),
                 }),
             },
-            _ => Err(Error::ExifDateNotAscii),
+            _ => Err(Error::ExifDateNotAscii(String::from(
+                path.to_string_lossy(),
+            ))),
         },
         None => Ok(None),
     }
